@@ -156,6 +156,20 @@ describe('build — the wire-up script', () => {
   });
 });
 
+describe('build — copied files', () => {
+  it('takes a single file as readily as a directory', async () => {
+    const { root } = setup({ 'static/robots.txt': 'User-agent: *\n', 'static/img/a.txt': 'a' });
+    const result = await build(baseConfig(root, {
+      copy: [
+        { from: 'static/robots.txt', to: 'robots.txt' },
+        { from: 'static/img', to: 'img' },
+      ],
+    }));
+    expect(result.copied.sort()).toEqual(['img/a.txt', 'robots.txt']);
+    expect(read(root, 'dist/robots.txt')).toContain('User-agent');
+  });
+});
+
 describe('build — the build id', () => {
   it('is unchanged by a build that emits the same bytes', async () => {
     const { root } = setup();

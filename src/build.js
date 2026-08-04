@@ -17,7 +17,7 @@
 // No source is rewritten either way. An import map does the redirection, and a
 // wire-up script puts the map, the stylesheet and the entry module into the
 // page (src/wireup.js).
-import { existsSync, readFileSync, rmSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { collectEntryPoints } from './entry-points.js';
 import { bundleVendor } from './vendor.js';
@@ -128,7 +128,10 @@ export async function build(rawConfig) {
     if (!existsSync(source)) fail(`copy: ${from} does not exist.`);
     const dest = join(out, to === '.' ? '' : to);
     copyInto(source, dest);
-    for (const f of walk(dest)) copied.push(posix(relative(out, f)));
+    // `copy` takes files as readily as directories -- a lone manifest.json is
+    // as common as a whole public/ tree -- and walking a file is a crash.
+    const emitted = statSync(dest).isDirectory() ? walk(dest) : [dest];
+    for (const f of emitted) copied.push(posix(relative(out, f)));
   }
   result.copied = copied;
 
