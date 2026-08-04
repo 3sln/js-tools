@@ -189,4 +189,4 @@ export { normalise, defineConfig, loadConfig } from './config.js';
 export { headersFile, securityHeadersFrom } from './headers.js';
 export { wireupHref, wireupSource, DEFAULT_WIREUP_PATH } from './wireup.js';
 export { collectEntryPoints, entryPointsFor, resolvePackageDir } from './entry-points.js';
-export { BuildError } from './util.js';
+export { BuildError, shortHash, encodePath, writeFileAt } from './util.js';
