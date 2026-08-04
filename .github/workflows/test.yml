@@ -1,0 +1,38 @@
+name: Test
+
+# Runs the suite on pull requests only. `bun test` against the source: the
+# fixture writes a whole small project -- node_modules and all -- into a temp
+# directory, the builder runs over it, and test/dev.test.js starts a real dev
+# server on a real port and fetches from it.
+#
+# Deliberately not on pushes to main: main only ever moves through a pull
+# request, so a push-triggered run would re-run the same commit, and the one
+# case that must not go untested -- a release -- is covered by publish.yml,
+# which runs the suite before it reaches the registry.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer commit on the same branch makes an in-flight run pointless.
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Test
+        run: bun run test
