@@ -117,6 +117,21 @@ describe('the wire-up script', () => {
     expect(src).toContain('data-wireup');
     expect(src).toContain('return;');
   });
+
+  it('preloads the entry immediately but runs it at DOMContentLoaded', () => {
+    // A module script inserted into the DOM is not deferred: it runs the moment
+    // it has loaded, which can be before the body exists.
+    const src = wireupSource({ name: 'app', imports: {}, module: '/m.js' });
+    expect(src).toContain('modulepreload');
+    expect(src).toContain('DOMContentLoaded');
+    expect(src.indexOf('modulepreload')).toBeLessThan(src.indexOf('DOMContentLoaded'));
+  });
+
+  it('leaves a stylesheet the page already links alone', () => {
+    const src = wireupSource({ name: 'app', imports: {}, css: ['/a.css'], module: '/m.js' });
+    // The selector is assembled so the href lands quoted: [href="/a.css"].
+    expect(src).toContain('d.querySelector(\'link[rel="stylesheet"][href=\' + "\\"/a.css\\""');
+  });
 });
 
 describe('_headers', () => {
