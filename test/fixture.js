@@ -18,7 +18,9 @@ export function makeFixture(files = {}) {
     'package.json': JSON.stringify({
       name: 'fixture',
       type: 'module',
-      dependencies: { 'esm-dep': '*', 'cjs-dep': '*', 'multi-dep': '*' },
+      dependencies: {
+        'esm-dep': '*', 'cjs-dep': '*', 'multi-dep': '*', 'browser-dep': '*',
+      },
     }),
 
     // An ES module with a single export, and no `exports` field at all -- the
@@ -54,8 +56,22 @@ export function makeFixture(files = {}) {
     'node_modules/multi-dep/shared.js': 'export const shared = "multi";\n',
     'node_modules/multi-dep/src/deep.js': 'export const deep = true;\n',
 
-    'src/app/main.js':
-      'import { esm } from "esm-dep";\nimport { helper } from "../shared/util.js";\nexport const boot = () => esm + helper();\n',
+    // `browser` as a map of redirects rather than a filename -- jszip's shape,
+    // and the one that used to make a dependency vanish from the map silently.
+    'node_modules/browser-dep/package.json': JSON.stringify({
+      name: 'browser-dep',
+      version: '1.0.0',
+      main: './lib/index',
+      browser: { './lib/index': './dist/browser.js', 'readable-stream': './lib/rs-browser.js' },
+    }),
+    'node_modules/browser-dep/lib/index.js': 'module.exports = { node: true };\n',
+    'node_modules/browser-dep/dist/browser.js': 'export const browser = "browser-dep";\n',
+
+    'src/app/main.js': [
+      'import { esm } from "esm-dep";',
+      'import { helper } from "../shared/util.js";',
+      'export const boot = async () => esm + helper() + (await import("multi-dep")).main;',
+    ].join('\n') + '\n',
     'src/app/app.css': '@import "../shared/base.css";\nbody { color: red; }\n',
     'src/shared/util.js': 'export const helper = () => "helper";\n',
     'src/shared/base.css': ':root { --x: 1; }\n',

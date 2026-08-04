@@ -117,7 +117,12 @@ export function entryPointsFor(name, { from, wildcards = false } = {}) {
   };
 
   if (!pkg.exports) {
-    add(name, browserRedirect(pkg, pkg.browser || pkg.module || pkg.main || 'index.js'));
+    // `browser` is only an entry point when it is a string. As a map it is a
+    // table of *redirects*, which browserRedirect applies to whatever `main`
+    // names -- passing the map itself as a filename silently yields no entry
+    // point at all, and a dependency vanishes from the import map without a
+    // word. jszip is exactly this shape.
+    add(name, browserRedirect(pkg, pkg.module || pkg.main || 'index.js'));
     return found;
   }
   if (typeof pkg.exports === 'string') {

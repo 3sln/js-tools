@@ -40,6 +40,7 @@ were paid for by an outage.
 | `src/modules.js` | fingerprinting project modules |
 | `src/styles.js` | entry stylesheets, bundled so `@import` is inlined |
 | `src/wireup.js` | the script that installs the map, the stylesheet and the entry |
+| `src/verify.js` | walks the shipped graph; fails on a specifier the map misses |
 | `src/headers.js` | `_headers` |
 | `src/build.js` | the orchestration, and the package's public surface |
 | `src/dev/vendor.js` | ESM straight from node_modules; everything else converted and cached |
@@ -47,6 +48,12 @@ were paid for by an outage.
 
 ## Things that look like bugs and are not
 
+- **`entryPointsFor` ignores a `browser` field that is an object.** As a map it
+  is a table of redirects, applied by `browserRedirect` to whatever `main`
+  names; as a string it is an entry point. Passing the map itself as a filename
+  resolves to nothing and the dependency vanishes from the import map with the
+  build still green. That is what `src/verify.js` is for, and there are tests
+  for both halves.
 - **`resolveFile` tries `.js`, `.mjs` and `/index.js`.** `main` may omit the
   extension or name a directory; jszip and friends do both.
 - **`isEsm` answers "no" when a file looks like both.** Converting a module that

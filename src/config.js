@@ -91,6 +91,12 @@ export function normalise(config = {}) {
     // A JS module the server side of the project can import. Null to skip.
     manifest: config.manifest === null ? null : abs(config.manifest ?? 'dist/client-manifest.js'),
 
+    // Walk the shipped graph and fail on a specifier the map does not cover.
+    // The failure it exists for is silent: a dependency that resolves to
+    // nothing disappears from the map, and the build stays green.
+    check: config.check ?? true,
+    allowUnresolved: config.allowUnresolved ?? [],
+
     clean: config.clean ?? true,
     quiet: config.quiet ?? false,
   };

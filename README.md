@@ -168,6 +168,25 @@ What the dev server does differently:
 | `copy` | `[]` | `{from, to}` copied verbatim |
 | `html` | `[]` | pages whose wire-up tag is rewritten |
 | `manifest` | `'dist/client-manifest.js'` | `null` to skip |
+| `check` | `true` | walk the shipped graph and fail on an unmapped specifier |
+| `allowUnresolved` | `[]` | specifiers provided some other way |
+
+## The graph is checked before the build reports success
+
+Every bare specifier reachable from an entry has to be in the import map.
+esbuild does the walking, so dynamic imports and re-exports are covered without
+a regex guessing at JavaScript, and a miss names the file that imported it:
+
+```
+build failed: 1 specifier(s) in the shipped graph are not in the import map:
+  jszip — imported by src/client/console/bl/lpfImport.js
+```
+
+This exists because the failure it catches is silent. jszip states its browser
+entry as a *map of redirects* rather than a filename; a resolver that hands the
+map over as a path resolves nothing, and the package disappears from the import
+map with the build still green. What you get is a blank page at runtime, in
+whichever code path lazily imported it.
 
 ## The manifest
 

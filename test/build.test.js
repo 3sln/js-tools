@@ -57,7 +57,7 @@ describe('build — dependencies', () => {
     const { root } = setup();
     const result = await build(baseConfig(root));
     expect([...result.vendor.urlFor.keys()].sort()).toEqual([
-      'cjs-dep', 'esm-dep', 'multi-dep', 'multi-dep/extra',
+      'browser-dep', 'cjs-dep', 'esm-dep', 'multi-dep', 'multi-dep/extra',
     ]);
   });
 
@@ -78,6 +78,17 @@ describe('build — dependencies', () => {
     const result = await build(baseConfig(root));
     const href = result.vendor.urlFor.get('cjs-dep');
     expect(read(root, `dist${decodeURIComponent(href)}`)).toContain('cjs-dep');
+  });
+
+  it('applies a `browser` map of redirects rather than treating it as a path', async () => {
+    // jszip's shape. Handing the map itself over as a filename resolved to
+    // nothing, and the package disappeared from the import map without a word.
+    const { root } = setup();
+    const result = await build(baseConfig(root));
+    const href = result.vendor.urlFor.get('browser-dep');
+    const body = read(root, `dist${decodeURIComponent(href)}`);
+    expect(body).toContain('browser-dep');
+    expect(body).not.toContain('node');
   });
 
   it('leaves wildcard subpaths out of the built map', async () => {
@@ -174,6 +185,30 @@ describe('build — the manifest', () => {
     expect(mod.ENTRIES.app.module).toBe(result.entries.app.module);
     expect(mod.ENTRIES.app.wireup).toBe(result.entries.app.wireup);
     expect(mod.IMPORT_MAP.imports['esm-dep']).toBe(result.imports['esm-dep']);
+  });
+});
+
+describe('build — the graph check', () => {
+  it('fails on a specifier the map does not cover, and names the importer', async () => {
+    const { root } = setup({
+      'src/shared/util.js': 'import "ghost";\nexport const helper = () => "helper";\n',
+    });
+    await expect(build(baseConfig(root))).rejects.toThrow(/ghost.*shared\/util\.js/s);
+  });
+
+  it('follows a dynamic import, which is where the silent failure was', async () => {
+    const { root } = setup({
+      'src/app/main.js': 'export const boot = () => import("phantom");\n',
+    });
+    await expect(build(baseConfig(root))).rejects.toThrow(/phantom/);
+  });
+
+  it('lets node: through, and anything listed in allowUnresolved', async () => {
+    const { root } = setup({
+      'src/shared/util.js': 'import "node:crypto";\nimport "provided";\nexport const helper = () => 1;\n',
+    });
+    const result = await build(baseConfig(root, { allowUnresolved: ['provided'] }));
+    expect(result.buildId).toBeTruthy();
   });
 });
 
