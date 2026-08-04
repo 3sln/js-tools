@@ -203,6 +203,19 @@ describe('build — the graph check', () => {
     await expect(build(baseConfig(root))).rejects.toThrow(/phantom/);
   });
 
+  it('walks more than one entry point', async () => {
+    // esbuild wants an outdir the moment there are two inputs, even with
+    // nothing being written.
+    const { root } = setup({ 'src/app/second.js': 'import "ghost";\nexport const x = 1;\n' });
+    const config = baseConfig(root, {
+      entries: {
+        app: { module: 'app/main.js', css: 'app/app.css' },
+        second: { module: 'app/second.js' },
+      },
+    });
+    await expect(build(config)).rejects.toThrow(/ghost/);
+  });
+
   it('lets node: through, and anything listed in allowUnresolved', async () => {
     const { root } = setup({
       'src/shared/util.js': 'import "node:crypto";\nimport "provided";\nexport const helper = () => 1;\n',

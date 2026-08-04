@@ -51,6 +51,9 @@ export async function verifyGraph({ root, src, entries, imports, allow = [] }) {
     entryPoints: Object.values(entries).map((e) => join(src, e.module)),
     bundle: true,
     write: false,
+    // Nothing is written, but esbuild still insists on somewhere to put more
+    // than one entry point's output before it will agree to discard it.
+    outdir: join(root, '.3sln-verify'),
     metafile: false,
     format: 'esm',
     platform: 'browser',
