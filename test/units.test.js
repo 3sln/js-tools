@@ -118,6 +118,14 @@ describe('the wire-up script', () => {
     expect(src).toContain('return;');
   });
 
+  it('carries its own nonce onto the import map', () => {
+    // An import map is inline script content as far as CSP is concerned, even
+    // created through the DOM.
+    const src = wireupSource({ name: 'app', imports: {}, module: '/m.js' });
+    expect(src).toContain('d.currentScript');
+    expect(src).toContain('map.nonce = nonce');
+  });
+
   it('preloads the entry immediately but runs it at DOMContentLoaded', () => {
     // A module script inserted into the DOM is not deferred: it runs the moment
     // it has loaded, which can be before the body exists.

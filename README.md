@@ -71,6 +71,18 @@ nothing downstream of it needs to know what a hash is.
 > appends the entry module itself, everything after it is in order by
 > construction.
 
+Two details it takes care of that are easy to get wrong by hand:
+
+- A module script *inserted into the DOM* is not deferred — unlike one written
+  in the markup, it runs the moment it has loaded, which can be before the body
+  exists. The wire-up starts the fetch immediately with `modulepreload` (which
+  follows the import map, so it warms the whole unbundled graph rather than just
+  the entry) and appends the script at `DOMContentLoaded`.
+- An import map is inline script content as far as CSP is concerned, even
+  created through the DOM. The wire-up copies its own `nonce` onto the map, so a
+  page under a nonce policy works with no extra configuration — and it is a
+  no-op for a policy that does not use nonces.
+
 ## Getting started
 
 ```js

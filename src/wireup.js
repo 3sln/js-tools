@@ -33,6 +33,12 @@ export function wireupSource({ imports, css = [], module = null, name = '' }) {
   lines.push('(function () {');
   lines.push('  var d = document;');
   lines.push('  var head = d.head || d.documentElement;');
+  // An import map is inline script content as far as CSP is concerned, even
+  // created this way -- so a page served under a nonce policy would reject it.
+  // Carrying the wire-up's own nonce across is what an inline map in the markup
+  // would have had, and it is a no-op for a policy that does not use nonces.
+  lines.push('  var me = d.currentScript;');
+  lines.push('  var nonce = me && me.nonce;');
   // Two copies of the same wire-up in one document would append a second import
   // map, which is an error in browsers that accept only one.
   lines.push(`  if (d.querySelector('script[data-wireup=' + ${id} + ']')) return;`);
@@ -43,6 +49,7 @@ export function wireupSource({ imports, css = [], module = null, name = '' }) {
   // JSON string literal inside a JS string: no double escaping, and nothing to
   // get wrong about `</script>` if this ever ends up inlined.
   lines.push(`  map.textContent = JSON.stringify(${literal({ imports })});`);
+  lines.push('  if (nonce) map.nonce = nonce;');
   lines.push('  head.appendChild(map);');
 
   for (const href of css) {
