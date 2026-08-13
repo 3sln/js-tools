@@ -22,6 +22,7 @@ import { join, relative } from 'node:path';
 import { collectEntryPoints } from './entry-points.js';
 import { bundleVendor } from './vendor.js';
 import { emitModules } from './modules.js';
+import { bundleWorkers } from './workers.js';
 import { bundleStyles } from './styles.js';
 import { wireupHref, wireupSource } from './wireup.js';
 import { verifyGraph } from './verify.js';
@@ -33,7 +34,7 @@ import {
 export async function build(rawConfig) {
   const config = rawConfig?.__normalised ? rawConfig : { ...normalise(rawConfig), __normalised: true };
   const {
-    root, src, out, assetRoot, vendorDir, include, exclude, extensions, entries,
+    root, src, out, assetRoot, vendorDir, include, exclude, extensions, entries, workers,
     modulesFrom, dependencies, minify, minifyVendor, minifyCss, target,
     wireupPath, copy, html, manifest, clean, quiet, check, allowUnresolved,
   } = config;
@@ -57,8 +58,23 @@ export async function build(rawConfig) {
   });
 
   // --- 2. project modules ---------------------------------------------------
+  //
+  // Worker entry points are held out: they are bundled whole below, and a second
+  // unbundled copy of one is a file that can only fail -- its neighbour imports
+  // resolve to map keys, and a worker has no map.
+  // Only the ones that are project files; a dependency's worker was never going
+  // to be emitted as a project module anyway.
+  const workerPaths = Object.values(workers ?? {})
+    .map(posix)
+    .filter((rel) => existsSync(join(src, rel)));
   const hashedOf = await emitModules({
-    src, include, exclude, extensions, minify, target, outDir: assetDir,
+    src, include, exclude: [...exclude, ...workerPaths], extensions, minify, target, outDir: assetDir,
+  });
+
+  // --- 2b. workers ----------------------------------------------------------
+  const workerFiles = await bundleWorkers({
+    src, workers, outDir: assetDir, minify, target, absWorkingDir: root, modulesFrom,
+    assetPath: (rel) => assetUrl(rel),
   });
 
   // --- 3. the import map ----------------------------------------------------
@@ -74,6 +90,12 @@ export async function build(rawConfig) {
   }
   for (const [specifier, href] of vendor.urlFor) imports[specifier] = href;
 
+  // A worker is keyed by its source path, like any project module, so a caller
+  // names the file it wrote and `import.meta.resolve` hands back the bundle.
+  // `new Worker()` does not consult the map itself -- nothing does, for a URL
+  // it is given -- which is exactly why the map has to be asked first.
+  for (const { key, hashed } of workerFiles.values()) imports[key] = assetUrl(hashed);
+
   // --- 4. everything the graph imports is in the map ------------------------
   if (check) await verifyGraph({ root, src, entries, imports, allow: allowUnresolved });
 
@@ -84,7 +106,8 @@ export async function build(rawConfig) {
 
   // --- 6. wire-up scripts ---------------------------------------------------
   const wireups = new Map();
-  const result = { config, buildId: '', entries: {}, imports, modules: hashedOf, vendor, styles };
+  const result = { config, buildId: '', entries: {}, imports, modules: hashedOf, vendor, styles, workers: {} };
+  for (const [name, { hashed }] of workerFiles) result.workers[name] = assetUrl(hashed);
 
   for (const [name, entry] of Object.entries(entries)) {
     if (!hashedOf.has(posix(entry.module))) {
@@ -169,6 +192,7 @@ export async function build(rawConfig) {
 export const BUILD_ID = ${JSON.stringify(result.buildId)};
 export const IMPORT_MAP = ${JSON.stringify({ imports })};
 export const ENTRIES = ${JSON.stringify(result.entries, null, 2)};
+export const WORKERS = ${JSON.stringify(result.workers, null, 2)};
 `);
     result.manifest = manifest;
   }

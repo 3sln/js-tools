@@ -52,6 +52,92 @@ describe('build — project modules', () => {
   });
 });
 
+describe('build — workers', () => {
+  // Written per test rather than into the shared fixture: a worker in the base
+  // fixture changes what every other test sees shipped.
+  const WORKER = {
+    'src/app/work.worker.js': [
+      "import { esm } from 'esm-dep';",
+      "import { helper } from '../shared/util.js';",
+      'self.onmessage = () => self.postMessage(esm + helper());',
+      '',
+    ].join('\n'),
+  };
+  const withWorker = (root) => baseConfig(root, { workers: { work: 'app/work.worker.js' } });
+
+  it('bundles a worker whole, so it needs no import map', async () => {
+    // A worker has no import map: `../shared/util.js` would resolve to a key the
+    // map rewrites rather than a file, and `esm-dep` would not resolve at all.
+    // Both must be inside the emitted file.
+    const { root } = setup(WORKER);
+    const result = await build(withWorker(root));
+    const url = result.workers.work;
+    expect(url).toBeTruthy();
+    const code = readFileSync(join(root, 'dist', url.replace(/^\//, '')), 'utf8');
+    expect(code).toContain('helper');
+    expect(code).toContain('esm-dep');
+    expect(code).not.toContain("from '../shared/util.js'");
+    expect(code).not.toContain("from 'esm-dep'");
+  });
+
+  it('names the bundle after its contents and maps the source path to it', async () => {
+    const { root } = setup(WORKER);
+    const result = await build(withWorker(root));
+    expect(result.workers.work).toMatch(/work\.worker\.[0-9a-f]{6,}\.js$/);
+    // Keyed by where the caller would name it, so import.meta.resolve finds it.
+    expect(result.imports['/assets/app/work.worker.js']).toBe(result.workers.work);
+  });
+
+  it('does not also ship the worker as a loose module', async () => {
+    // That copy could only ever fail, and would sit next to a working one.
+    const { root } = setup(WORKER);
+    const result = await build(withWorker(root));
+    expect([...result.modules.keys()]).not.toContain('app/work.worker.js');
+  });
+
+  it('takes a worker a dependency ships, by the name node resolves', async () => {
+    // pdf.js and friends ship their own. Reaching into node_modules with a
+    // relative path would be a lie about where it comes from, and would break
+    // the moment the package moved it.
+    const { root } = setup({
+      'node_modules/worker-dep/package.json': JSON.stringify({
+        name: 'worker-dep', version: '1.0.0', type: 'module', main: 'index.js',
+      }),
+      'node_modules/worker-dep/index.js': 'export const x = 1;\n',
+      'node_modules/worker-dep/dist/thing.worker.js':
+        "import { x } from '../index.js';\nself.onmessage = () => self.postMessage(x);\n",
+    });
+    const result = await build(
+      baseConfig(root, { workers: { thing: 'worker-dep/dist/thing.worker.js' } }),
+    );
+    expect(result.workers.thing).toMatch(/workers\/thing\.[0-9a-f]{6,}\.js$/);
+    // Keyed by the specifier that was written, like a dependency's entry point.
+    expect(result.imports['worker-dep/dist/thing.worker.js']).toBe(result.workers.thing);
+  });
+
+  it('prefers a file under src when both could match', async () => {
+    const { root } = setup({
+      ...WORKER,
+      'node_modules/app/package.json': JSON.stringify({ name: 'app', version: '1.0.0' }),
+    });
+    const result = await build(withWorker(root));
+    expect(result.imports['/assets/app/work.worker.js']).toBe(result.workers.work);
+  });
+
+  it('refuses a worker that is neither', async () => {
+    const { root } = setup();
+    await expect(
+      build(baseConfig(root, { workers: { nope: 'not/anywhere.js' } })),
+    ).rejects.toThrow(/neither a file under src nor a resolvable module/);
+  });
+
+  it('says nothing about workers when none are declared', async () => {
+    const { root } = setup();
+    const result = await build(baseConfig(root));
+    expect(result.workers).toEqual({});
+  });
+});
+
 describe('build — dependencies', () => {
   it('gives every exported subpath its own entry point', async () => {
     const { root } = setup();

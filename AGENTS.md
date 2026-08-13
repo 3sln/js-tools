@@ -15,6 +15,13 @@ were paid for by an outage.
   matching rules rather than replacing them and the strictest wins, so a
   catch-all `Cache-Control` silently defeats the one on the asset root. The
   catch-all carries security headers only.
+- **A worker gets no import map.** The map belongs to the document, so a worker
+  resolves every specifier itself — a bare specifier fails, and so does a
+  neighbour like `./util.js`, which resolves to the unhashed path: a map key,
+  not a file. Worse, both work in development, where modules are served at
+  exactly those paths, so the failure appears only after a deploy. Worker
+  entry points are declared in `workers` and bundled whole. `new Worker()`
+  does not consult the map either; ask it first, via `import.meta.resolve`.
 - **Nothing is cache-busted.** No `?v=`, ever. A query string is a cache key the
   server cannot reason about and the service worker gets wrong. The filename
   carries the hash.
@@ -38,6 +45,7 @@ were paid for by an outage.
 | `src/entry-points.js` | a package's `exports` → entry points; shared by both halves |
 | `src/vendor.js` | the split esbuild bundle; used by the build *and* the dev cache |
 | `src/modules.js` | fingerprinting project modules |
+| `src/workers.js` | worker entry points: src paths or resolved specifiers, bundled whole |
 | `src/styles.js` | entry stylesheets, bundled so `@import` is inlined |
 | `src/wireup.js` | the script that installs the map, the stylesheet and the entry |
 | `src/verify.js` | walks the shipped graph; fails on a specifier the map misses |
