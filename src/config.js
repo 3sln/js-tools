@@ -66,6 +66,15 @@ export function normalise(config = {}) {
     extensions: config.extensions ?? ['.js'],
 
     entries,
+
+    // Worker entry points: `{name: 'path/under/src.js'}`.
+    //
+    // Declared rather than inferred because a worker is built differently from
+    // everything else -- bundled whole, because it gets no import map -- and
+    // guessing which modules are workers from their filenames would be a rule
+    // nobody could see. See src/workers.js.
+    workers: config.workers ?? {},
+
     // Where dependencies are read from and resolved from. A repository whose
     // client has its own package.json (donki's app/) points both at it.
     packageJson: packageJsonPath,

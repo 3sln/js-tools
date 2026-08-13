@@ -169,6 +169,7 @@ What the dev server does differently:
 | `exclude` | `[]` | paths within `include` to skip (`sw.js`) |
 | `extensions` | `['.js']` | what gets fingerprinted |
 | `entries` | — | `{name: {module, css}}`, relative to `src` |
+| `workers` | `{}` | `{name: 'path.js'}` relative to `src`; bundled whole |
 | `out` | `'dist'` | |
 | `assetRoot` | `'assets'` | the immutable, content-addressed prefix |
 | `vendorDir` | `'<assetRoot>/vendor'` | |
