@@ -62,14 +62,19 @@ export async function build(rawConfig) {
   // Worker entry points are held out: they are bundled whole below, and a second
   // unbundled copy of one is a file that can only fail -- its neighbour imports
   // resolve to map keys, and a worker has no map.
-  const workerPaths = Object.values(workers ?? {}).map(posix);
+  // Only the ones that are project files; a dependency's worker was never going
+  // to be emitted as a project module anyway.
+  const workerPaths = Object.values(workers ?? {})
+    .map(posix)
+    .filter((rel) => existsSync(join(src, rel)));
   const hashedOf = await emitModules({
     src, include, exclude: [...exclude, ...workerPaths], extensions, minify, target, outDir: assetDir,
   });
 
   // --- 2b. workers ----------------------------------------------------------
   const workerFiles = await bundleWorkers({
-    src, workers, outDir: assetDir, minify, target, absWorkingDir: root,
+    src, workers, outDir: assetDir, minify, target, absWorkingDir: root, modulesFrom,
+    assetPath: (rel) => assetUrl(rel),
   });
 
   // --- 3. the import map ----------------------------------------------------
@@ -89,7 +94,7 @@ export async function build(rawConfig) {
   // names the file it wrote and `import.meta.resolve` hands back the bundle.
   // `new Worker()` does not consult the map itself -- nothing does, for a URL
   // it is given -- which is exactly why the map has to be asked first.
-  for (const { rel, hashed } of workerFiles.values()) imports[assetUrl(rel)] = assetUrl(hashed);
+  for (const { key, hashed } of workerFiles.values()) imports[key] = assetUrl(hashed);
 
   // --- 4. everything the graph imports is in the map ------------------------
   if (check) await verifyGraph({ root, src, entries, imports, allow: allowUnresolved });

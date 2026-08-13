@@ -45,7 +45,7 @@ were paid for by an outage.
 | `src/entry-points.js` | a package's `exports` → entry points; shared by both halves |
 | `src/vendor.js` | the split esbuild bundle; used by the build *and* the dev cache |
 | `src/modules.js` | fingerprinting project modules |
-| `src/workers.js` | worker entry points, bundled whole (they get no import map) |
+| `src/workers.js` | worker entry points: src paths or resolved specifiers, bundled whole |
 | `src/styles.js` | entry stylesheets, bundled so `@import` is inlined |
 | `src/wireup.js` | the script that installs the map, the stylesheet and the entry |
 | `src/verify.js` | walks the shipped graph; fails on a specifier the map misses |

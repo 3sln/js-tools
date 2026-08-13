@@ -95,6 +95,42 @@ describe('build — workers', () => {
     expect([...result.modules.keys()]).not.toContain('app/work.worker.js');
   });
 
+  it('takes a worker a dependency ships, by the name node resolves', async () => {
+    // pdf.js and friends ship their own. Reaching into node_modules with a
+    // relative path would be a lie about where it comes from, and would break
+    // the moment the package moved it.
+    const { root } = setup({
+      'node_modules/worker-dep/package.json': JSON.stringify({
+        name: 'worker-dep', version: '1.0.0', type: 'module', main: 'index.js',
+      }),
+      'node_modules/worker-dep/index.js': 'export const x = 1;\n',
+      'node_modules/worker-dep/dist/thing.worker.js':
+        "import { x } from '../index.js';\nself.onmessage = () => self.postMessage(x);\n",
+    });
+    const result = await build(
+      baseConfig(root, { workers: { thing: 'worker-dep/dist/thing.worker.js' } }),
+    );
+    expect(result.workers.thing).toMatch(/workers\/thing\.[0-9a-f]{6,}\.js$/);
+    // Keyed by the specifier that was written, like a dependency's entry point.
+    expect(result.imports['worker-dep/dist/thing.worker.js']).toBe(result.workers.thing);
+  });
+
+  it('prefers a file under src when both could match', async () => {
+    const { root } = setup({
+      ...WORKER,
+      'node_modules/app/package.json': JSON.stringify({ name: 'app', version: '1.0.0' }),
+    });
+    const result = await build(withWorker(root));
+    expect(result.imports['/assets/app/work.worker.js']).toBe(result.workers.work);
+  });
+
+  it('refuses a worker that is neither', async () => {
+    const { root } = setup();
+    await expect(
+      build(baseConfig(root, { workers: { nope: 'not/anywhere.js' } })),
+    ).rejects.toThrow(/neither a file under src nor a resolvable module/);
+  });
+
   it('says nothing about workers when none are declared', async () => {
     const { root } = setup();
     const result = await build(baseConfig(root));
