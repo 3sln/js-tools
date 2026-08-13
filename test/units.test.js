@@ -26,6 +26,16 @@ describe('entry points', () => {
     expect(card.dir).toEndWith('multi-dep/src');
   });
 
+  it('reads conditions-only exports as the "." subpath', () => {
+    // No key starts with ".", so the whole table is the single entry point.
+    // Read as subpaths instead, the condition names become subpaths and the
+    // package is entered through its node build.
+    const { root } = setup();
+    const found = entryPointsFor('conditions-dep', { from: root });
+    expect(found.map((e) => e.specifier)).toEqual(['conditions-dep']);
+    expect(found[0].file).toEndWith('conditions-dep/dist/web.js');
+  });
+
   it('falls back to main when there is no exports field', () => {
     const { root } = setup();
     expect(entryPointsFor('esm-dep', { from: root })[0].file).toEndWith('esm-dep/index.js');

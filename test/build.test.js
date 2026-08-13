@@ -57,7 +57,7 @@ describe('build — dependencies', () => {
     const { root } = setup();
     const result = await build(baseConfig(root));
     expect([...result.vendor.urlFor.keys()].sort()).toEqual([
-      'browser-dep', 'cjs-dep', 'esm-dep', 'multi-dep', 'multi-dep/extra',
+      'browser-dep', 'cjs-dep', 'conditions-dep', 'esm-dep', 'multi-dep', 'multi-dep/extra',
     ]);
   });
 

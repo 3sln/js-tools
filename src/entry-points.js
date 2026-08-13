@@ -130,7 +130,22 @@ export function entryPointsFor(name, { from, wildcards = false } = {}) {
     return found;
   }
 
-  for (const [key, entry] of Object.entries(pkg.exports)) {
+  // `exports` has two shapes, and the second one is easy to read as the first.
+  // A key starting with "." is a subpath; a key that does not is a *condition*,
+  // and a table of nothing but conditions is shorthand for the "." subpath:
+  //
+  //   "exports": { "node": "./node.js", "default": "./web.js" }
+  //   "exports": { ".": { "node": "./node.js", "default": "./web.js" } }
+  //
+  // Read literally, the shorthand turns every condition name into a subpath, so
+  // the package is entered through whichever one is listed first -- in practice
+  // "node", which is exactly the build a browser must not get. @huggingface/
+  // transformers ships this shape, and it failed as `Could not resolve "fs"`
+  // from a file no browser should have been asked to bundle.
+  const keys = Object.keys(pkg.exports);
+  const table = keys.some((k) => k.startsWith('.')) ? pkg.exports : { '.': pkg.exports };
+
+  for (const [key, entry] of Object.entries(table)) {
     if (key === './package.json') continue;
     const target = targetOf(entry);
     if (!target) continue;
