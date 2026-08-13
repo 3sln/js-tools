@@ -20,6 +20,7 @@ export function makeFixture(files = {}) {
       type: 'module',
       dependencies: {
         'esm-dep': '*', 'cjs-dep': '*', 'multi-dep': '*', 'browser-dep': '*',
+        'conditions-dep': '*',
       },
     }),
 
@@ -36,6 +37,22 @@ export function makeFixture(files = {}) {
       name: 'cjs-dep', version: '2.1.0', main: './lib/index',
     }),
     'node_modules/cjs-dep/lib/index.js': 'module.exports = { cjs: "cjs-dep" };\n',
+
+    // `exports` as conditions only, with no "." key -- the shorthand for a
+    // single entry point. Real packages ship this (@huggingface/transformers),
+    // and reading the condition names as subpaths enters through the node
+    // build, which then imports node builtins a browser cannot resolve.
+    'node_modules/conditions-dep/package.json': JSON.stringify({
+      name: 'conditions-dep',
+      version: '1.2.0',
+      type: 'module',
+      exports: {
+        node: { import: './dist/node.js', require: './dist/node.cjs' },
+        default: { types: './types.d.ts', default: './dist/web.js' },
+      },
+    }),
+    'node_modules/conditions-dep/dist/node.js': 'import fs from "fs";\nexport const where = "node";\n',
+    'node_modules/conditions-dep/dist/web.js': 'export const where = "web";\n',
 
     // Two subpaths over shared internals: the case splitting exists for.
     'node_modules/multi-dep/package.json': JSON.stringify({
