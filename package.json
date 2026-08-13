@@ -1,6 +1,6 @@
 {
   "name": "@3sln/js-tools",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Content-addressed builder and dev server for unbundled ES module applications.",
   "type": "module",
   "author": "Ray Stubbs",
