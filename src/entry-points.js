@@ -21,6 +21,14 @@ import { fail } from './util.js';
 // usually does so because the default one reaches for node.
 const CONDITIONS = ['browser', 'import', 'module', 'default'];
 
+// What an entry point may be. A package's `exports` maps *specifiers*, and not
+// every specifier names a module a browser can run: echarts declares nine
+// types-only subpaths ("./types/dist/core": "./types/dist/core.d.ts"), and
+// plenty of packages export a stylesheet the same way. They resolve to real
+// files, so nothing downstream notices until esbuild is handed a .d.ts as
+// browser source and fails on an import of something that was never shipped.
+const JS_EXTENSIONS = new Set(['.js', '.mjs', '.cjs']);
+
 export function targetOf(entry, conditions = CONDITIONS) {
   if (typeof entry === 'string') return entry;
   if (!entry || typeof entry !== 'object') return null;
@@ -113,7 +121,13 @@ export function entryPointsFor(name, { from, wildcards = false } = {}) {
 
   const add = (specifier, file) => {
     const abs = resolveFile(pkgDir, file);
-    if (abs) found.push({ specifier, file: abs, pkgDir, pkgName: name, version: pkg.version ?? '0.0.0' });
+    if (!abs) return;
+    // Skipped rather than failed: a types-only or stylesheet subpath is a
+    // perfectly correct thing for a package to declare, and leaving it out of
+    // the import map costs nothing unless the shipped graph imports it -- which
+    // src/verify.js would then report by name.
+    if (!JS_EXTENSIONS.has(extname(abs))) return;
+    found.push({ specifier, file: abs, pkgDir, pkgName: name, version: pkg.version ?? '0.0.0' });
   };
 
   if (!pkg.exports) {
