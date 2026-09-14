@@ -177,6 +177,31 @@ describe('build — dependencies', () => {
     expect(body).not.toContain('node');
   });
 
+  it('leaves a types-only subpath out rather than building a .d.ts', async () => {
+    // The build failure echarts produces: a declaration file is a real file,
+    // so it becomes an entry point, and esbuild is then asked to bundle it as
+    // browser source -- reporting an unresolved import of an internal that the
+    // package ships no JavaScript for.
+    const { root } = setup({
+      'node_modules/multi-dep/package.json': JSON.stringify({
+        name: 'multi-dep',
+        version: '0.3.0',
+        type: 'module',
+        exports: {
+          '.': './index.js',
+          './extra': './extra.js',
+          './types/core': './types/core.d.ts',
+        },
+      }),
+      // `export *` is the shape echarts ships, and the one esbuild cannot elide
+      // the way it elides a type-only import: it has to resolve the file.
+      'node_modules/multi-dep/types/core.d.ts': 'export * from "./internal.js";\n',
+    });
+    const result = await build(baseConfig(root));
+    expect(result.imports['multi-dep/extra']).toBeDefined();
+    expect(result.imports['multi-dep/types/core']).toBeUndefined();
+  });
+
   it('leaves wildcard subpaths out of the built map', async () => {
     const { root } = setup();
     const result = await build(baseConfig(root));

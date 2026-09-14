@@ -18,6 +18,30 @@ describe('entry points', () => {
     expect(found).toEqual(['multi-dep', 'multi-dep/extra']);
   });
 
+  it('skips a subpath that does not name JavaScript', () => {
+    // echarts' shape: nine types-only subpaths beside the real ones. They
+    // resolve to real files, so the extension is the only thing that tells
+    // them apart, and a .d.ts handed to esbuild as browser source fails on an
+    // import of a file the package does not ship.
+    const { root } = setup({
+      'node_modules/multi-dep/package.json': JSON.stringify({
+        name: 'multi-dep',
+        version: '0.3.0',
+        type: 'module',
+        exports: {
+          '.': './index.js',
+          './extra': './extra.js',
+          './types/core': './types/core.d.ts',
+          './style.css': './style.css',
+        },
+      }),
+      'node_modules/multi-dep/types/core.d.ts': 'export declare const core: string;\n',
+      'node_modules/multi-dep/style.css': ':root { --y: 2; }\n',
+    });
+    const found = entryPointsFor('multi-dep', { from: root }).map((e) => e.specifier);
+    expect(found).toEqual(['multi-dep', 'multi-dep/extra']);
+  });
+
   it('returns a wildcard as a directory prefix only when asked', () => {
     const { root } = setup();
     const withCards = entryPointsFor('multi-dep', { from: root, wildcards: true });
